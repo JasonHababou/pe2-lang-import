@@ -29,7 +29,7 @@ use std::process::ExitCode;
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 const USAGE: &str = "usage: pe2-lang-import [--pe2 <PE2PC's program>]   (the window)
-       pe2-lang-import run [--pe2 <PE2PC's program>] --usa <disc 1> <disc 2> --release <disc 1> <disc 2> [--ffmpeg <program>]
+       pe2-lang-import run [--pe2 <PE2PC's program>] --usa <disc 1> <disc 2> --release <disc 1> <disc 2>
        pe2-lang-import import <USA dumps> <release's dumps> <mod folder> [--name NAME]";
 
 /// The arguments: those alone, and each `--name`'s values.
@@ -88,7 +88,6 @@ fn main() -> ExitCode {
                 pe2,
                 usa,
                 release,
-                ffmpeg: one("ffmpeg").or_else(pipeline::find_ffmpeg),
                 work: std::env::temp_dir().join("pe2-lang-import"),
             };
             let code = std::cell::Cell::new(ExitCode::SUCCESS);

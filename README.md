@@ -8,13 +8,13 @@ PE2PC plays the USA discs. This program reads your own discs of a European relea
 - menus, items and their descriptions;
 - pictures of text (maps, signs, the loading captions' font);
 - loading captions;
-- the two movies with text (the title menu's and the prologue's), when ffmpeg is installed.
+- the two movies with text (the title menu's and the prologue's).
 
 Nothing from the game comes with this program. Everything is read from your discs.
 
 ## What you need
 
-- PE2PC, set up with your Parasite Eve II (USA) discs.
+- PE2PC, set up with your Parasite Eve II (USA) discs, in a version that plays these mods. Until [Snaity-CORE/pe2-pc-port#34](https://github.com/Snaity-CORE/pe2-pc-port/pull/34) is merged, that is the [test build](https://github.com/JasonHababou/pe2-pc-port/releases/tag/nightly) of the pull request.
 - Your own dumps of a European release, discs 1 and 2, as `.chd` or `.cue` images:
 
   | Language | Release     |
@@ -25,11 +25,12 @@ Nothing from the game comes with this program. Everything is read from your disc
   | Italian  | SLES-02562  |
 
 - About 2 GB of free space for the time of the import (it is removed afterwards).
-- Optionally, [ffmpeg](https://ffmpeg.org/download.html), for the movies with text. Without it, those two movies stay in English.
+
+Like PE2PC, it is a Windows program. On Linux and the Steam Deck, it runs through Proton next to PE2PC (see PE2PC's [Steam Deck and Linux](https://github.com/Snaity-CORE/pe2-pc-port/blob/main/docs/STEAM_DECK.md)).
 
 ## How to use it
 
-1. Put `pe2-lang-import.exe` next to `pe2.exe`.
+1. Take the [latest release](https://github.com/JasonHababou/pe2-lang-import/releases/latest) and put `pe2-lang-import.exe` next to `pe2.exe`.
 2. In PE2PC's launcher, open **Mods** and click **Import a language from European discs...**. You can also run `pe2-lang-import.exe` directly.
 3. Choose your European discs. The USA discs come from PE2PC's settings.
 4. Click **Make the mod**. The import takes a few minutes.
@@ -41,7 +42,7 @@ Only keep one language mod turned on at a time.
 ## From a terminal
 
 ```
-pe2-lang-import run [--pe2 <pe2.exe>] --usa <disc 1> <disc 2> --release <disc 1> <disc 2> [--ffmpeg <ffmpeg>]
+pe2-lang-import run [--pe2 <pe2.exe>] --usa <disc 1> <disc 2> --release <disc 1> <disc 2>
 pe2-lang-import import <USA dumps> <release's dumps> <mod folder> [--name NAME]
 ```
 

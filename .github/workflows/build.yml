@@ -1,0 +1,46 @@
+# Builds and tests pe2-lang-import for Windows, as PE2PC is (32-bit; on
+# Linux and the Steam Deck both run through Proton). A pushed tag vX.Y.Z
+# also publishes a release with the program.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write # the release, on a tag
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: i686-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --target i686-pc-windows-msvc
+
+      - name: Tests
+        run: cargo test --release --target i686-pc-windows-msvc
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pe2-lang-import-windows-x86
+          path: target/i686-pc-windows-msvc/release/pe2-lang-import.exe
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip="pe2-lang-import-${GITHUB_REF_NAME}-windows-x86.zip"
+          cp target/i686-pc-windows-msvc/release/pe2-lang-import.exe README.md LICENSE .
+          7z a "$zip" pe2-lang-import.exe README.md LICENSE
+          gh release create "$GITHUB_REF_NAME" "$zip" --title "pe2-lang-import $GITHUB_REF_NAME" --notes "Put pe2-lang-import.exe next to pe2.exe. See README.md."

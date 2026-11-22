@@ -22,7 +22,6 @@ struct App {
     pe2: Option<PathBuf>,
     usa: [Option<PathBuf>; 2],
     release: [Option<PathBuf>; 2],
-    ffmpeg: Option<PathBuf>,
     /// The import running: its events, the step it is at, PE2PC's last line.
     running: Option<(Receiver<Event>, usize, String)>,
     result: Option<crate::Result<Done>>,
@@ -35,7 +34,6 @@ impl App {
             pe2: None,
             usa: [None, None],
             release: [None, None],
-            ffmpeg: pipeline::find_ffmpeg(),
             running: None,
             result: None,
         };
@@ -65,7 +63,6 @@ impl App {
             pe2,
             usa: self.usa.iter().flatten().cloned().collect(),
             release: self.release.iter().flatten().cloned().collect(),
-            ffmpeg: self.ffmpeg.clone(),
             work: std::env::temp_dir().join("pe2-lang-import"),
         };
         let (send, receive) = channel();
@@ -104,7 +101,7 @@ impl App {
         }
     }
 
-    fn file_row(ui: &mut egui::Ui, lang: Lang, label: &str, path: &mut Option<PathBuf>, filter: Option<(&str, &[&str])>) -> bool {
+    fn file_row(ui: &mut egui::Ui, lang: Lang, label: &str, path: &mut Option<PathBuf>, filter: (&str, &[&str])) -> bool {
         ui.label(label);
         let shown = path.as_ref().map_or_else(|| lang.t("Not chosen").to_string(), |p| p.display().to_string());
         ui.allocate_ui_with_layout(egui::vec2(PATH_WIDTH, 20.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
@@ -113,8 +110,8 @@ impl App {
         let mut changed = false;
         if ui.button(lang.t("Browse...")).clicked() {
             let mut dialog = rfd::FileDialog::new();
-            if let Some((name, extensions)) = filter {
-                dialog = dialog.add_filter(name, extensions);
+            if !filter.1.is_empty() {
+                dialog = dialog.add_filter(filter.0, filter.1);
             }
             if let Some(file) = dialog.pick_file() {
                 *path = Some(file);
@@ -127,10 +124,11 @@ impl App {
 
     fn form(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let disc = Some((lang.t("CD image"), &["chd", "cue"][..]));
+        let disc = (lang.t("CD image"), &["chd", "cue"][..]);
         egui::Grid::new("files").num_columns(3).spacing([12.0, 8.0]).min_col_width(130.0).show(ui, |ui| {
             let mut pe2 = self.pe2.clone();
-            let program = cfg!(windows).then_some(("PE2PC", &["exe"][..]));
+            // a program has no extension but on Windows
+            let program = ("PE2PC", if cfg!(windows) { &["exe"][..] } else { &[][..] });
             if App::file_row(ui, lang, "PE2PC", &mut pe2, program) {
                 self.set_pe2(pe2);
             }
@@ -138,11 +136,7 @@ impl App {
             App::file_row(ui, lang, lang.t("USA disc 2"), &mut self.usa[1], disc);
             App::file_row(ui, lang, lang.t("European disc 1"), &mut self.release[0], disc);
             App::file_row(ui, lang, lang.t("European disc 2"), &mut self.release[1], disc);
-            App::file_row(ui, lang, "ffmpeg", &mut self.ffmpeg, None);
         });
-        if self.ffmpeg.is_none() {
-            ui.label(lang.t("Without ffmpeg, the two movies with text stay in English."));
-        }
         if self.pe2.is_none() {
             ui.label(lang.t("Choose PE2PC's program (pe2.exe): the import reads the discs with it."));
         }
