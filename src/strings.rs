@@ -66,9 +66,10 @@ const PICTURES_KEPT: [&str; 5] = [
 /// it is listed in, its address, the other release's bytes, their reading).
 type Seen = (String, String, u32, Vec<u8>, String);
 
-/// A code package read: its file, load address, the game's and the other
-/// release's bytes, and the addresses of the texts the extract lists in it.
-type Package = (String, u32, Vec<u8>, Vec<u8>, HashSet<u32>);
+/// A code package read: its file, the game's load address and bytes, the
+/// other release's load address and bytes, and the addresses of the texts
+/// the extract lists in it.
+type Package = (String, u32, Vec<u8>, u32, Vec<u8>, HashSet<u32>);
 
 /// The sizes a record of a table of names may have (bytes).
 const RECORDS: std::ops::Range<usize> = 16..132;
@@ -184,19 +185,19 @@ impl<'a> CodeMap<'a> {
 }
 
 /// One code package (or the executable) of the game and the other
-/// release's of the same place.
+/// release's of the same place, which may load elsewhere (`their_base`).
 struct Place<'a> {
     rel: String,
-    base: u32,
     mine: References<'a>,
+    their_base: u32,
     theirs: &'a [u8],
     listed: HashSet<u32>,
     code_map: std::cell::OnceCell<CodeMap<'a>>,
 }
 
 impl<'a> Place<'a> {
-    fn new(rel: String, base: u32, data: &'a [u8], theirs: &'a [u8], listed: HashSet<u32>) -> Place<'a> {
-        Place { rel, base, mine: References::new(data), theirs, listed, code_map: std::cell::OnceCell::new() }
+    fn new(rel: String, data: &'a [u8], their_base: u32, theirs: &'a [u8], listed: HashSet<u32>) -> Place<'a> {
+        Place { rel, mine: References::new(data), their_base, theirs, listed, code_map: std::cell::OnceCell::new() }
     }
 
     /// What the other build's code puts together where the game's `lui` at
@@ -245,7 +246,7 @@ impl<'a> Place<'a> {
             }
         }
         // a text's start, as the game's (not into another's words)
-        let (base, len) = (self.base as u64, theirs.len() as u64);
+        let (base, len) = (self.their_base as u64, theirs.len() as u64);
         let good = votes.into_iter().filter(|&(a, _)| {
             let a = a as u64;
             base <= a && a < base + len && (a == base || theirs[(a - base - 1) as usize] == 0)
@@ -384,6 +385,20 @@ impl Reader {
     }
 }
 
+/// Where each code package of an extract loads (files/load-addresses.txt:
+/// its path -> its address), in the file's order.
+fn load_addresses(dumps: &Path) -> Result<IndexMap<String, u32>> {
+    let path = dumps.join("files").join("load-addresses.txt");
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e} (extract again with a newer PE2PC)", path.display()))?;
+    Ok(text
+        .lines()
+        .filter_map(|line| {
+            let (path, base) = line.rsplit_once(' ')?;
+            Some((path.to_string(), u32::from_str_radix(base, 16).ok()?))
+        })
+        .collect())
+}
+
 fn has_letters(text: &str) -> usize {
     text.chars().filter(|c| c.is_alphabetic()).count()
 }
@@ -464,6 +479,8 @@ pub fn import(game: &Version, other: &Version, out: &Path, report: &mut Vec<Stri
         Some(text)
     };
 
+    // Where each package loads: another build's may load elsewhere.
+    let (game_loads, their_loads) = (load_addresses(&game.dumps)?, load_addresses(&other.dumps)?);
     let mut found_texts = Vec::new();
     let mut seen: Vec<Seen> = Vec::new();
     // The code packages read, kept for the texts found again elsewhere.
@@ -506,23 +523,23 @@ pub fn import(game: &Version, other: &Version, out: &Path, report: &mut Vec<Stri
         let first = latin1(&listed[0].original).unwrap_or_default();
         let first_at = listed[0].at.unwrap_or(base).wrapping_sub(base) as usize;
         let (data, theirs) = if key == "exe" {
-            (game.exe.clone(), Some(other.exe.clone()))
+            (game.exe.clone(), Some((other.exe_base, other.exe.clone())))
         } else {
             let theirs: HashMap<String, Vec<u8>> = other.packages_of(key).into_iter().collect();
             match game.packages_of(key).into_iter().find(|(_, d)| d.get(first_at..first_at + first.len()) == Some(&first[..])) {
                 Some((n, d)) => {
-                    let t = theirs.get(&n).cloned();
+                    let t = theirs.get(&n).cloned().zip(their_loads.get(&format!("{key}/{n}"))).map(|(t, &b)| (b, t));
                     (d, t)
                 }
                 None => (Vec::new(), None),
             }
         };
-        let Some(theirs) = theirs else {
+        let Some((their_base, theirs)) = theirs else {
             report.push(format!("{rel}: not found in the other release"));
             continue;
         };
         let ats: Vec<u32> = listed.iter().filter_map(|s| s.at).collect();
-        let place = Place::new(rel.clone(), base, &data, &theirs, ats.iter().copied().collect());
+        let place = Place::new(rel.clone(), &data, their_base, &theirs, ats.iter().copied().collect());
         let mut found: HashMap<u32, u32> = HashMap::new();
         for &at in &ats {
             if let Some(there) = place.where_there(at) {
@@ -543,9 +560,9 @@ pub fn import(game: &Version, other: &Version, out: &Path, report: &mut Vec<Stri
                 j += 1;
             }
             if 0 < i && j < ats.len() {
-                let mut start = (found[&ats[i - 1]] - base) as usize;
+                let mut start = (found[&ats[i - 1]] - their_base) as usize;
                 start += read_text(&theirs, start).len() + 1;
-                let stop = (found[&ats[j]] - base) as usize;
+                let stop = (found[&ats[j]] - their_base) as usize;
                 let (mut between, mut at) = (Vec::new(), start);
                 while at < stop {
                     let t = read_text(&theirs, at);
@@ -555,7 +572,7 @@ pub fn import(game: &Version, other: &Version, out: &Path, report: &mut Vec<Stri
                     at += t.len() + 1;
                 }
                 if between.len() == j - i && j - i == 1 {
-                    found.insert(ats[i], base + between[0] as u32);
+                    found.insert(ats[i], their_base + between[0] as u32);
                 }
             }
             i = j;
@@ -568,45 +585,35 @@ pub fn import(game: &Version, other: &Version, out: &Path, report: &mut Vec<Stri
                 continue;
             }
             if offset < theirs.len() && (offset == 0 || theirs[offset - 1] == 0) && !read_text(&theirs, offset).trim_ascii().is_empty() {
-                found.insert(at, at);
+                found.insert(at, their_base + offset as u32);
             }
         }
         for s in listed {
             let Some(at) = s.at else { continue };
             let Some(&there) = found.get(&at) else { continue };
-            let raw = read_text(&theirs, (there - base) as usize).to_vec();
+            let raw = read_text(&theirs, (there - their_base) as usize).to_vec();
             if let Some(text) = translation(report, &rel, &s.original, at, &raw) {
                 seen.push((s.original.clone(), rel.clone(), at, raw, text));
             }
         }
         drop(place);
-        packages.push((rel, base, data, theirs, ats.into_iter().collect()));
+        packages.push((rel, base, data, their_base, theirs, ats.into_iter().collect()));
     }
 
     // The packages the extract listed no text of (each was listed where
     // first found): a room's copy of the shop's, say, translated otherwise
     // than the menus' same text. Where each loads is in load-addresses.txt.
-    let loads = game.dumps.join("files").join("load-addresses.txt");
-    match std::fs::read_to_string(&loads) {
-        Ok(text) => {
-            let mut known: HashSet<String> = packages.iter().map(|p| p.0.clone()).collect();
-            for line in text.lines() {
-                let Some((path, base)) = line.rsplit_once(' ') else { continue };
-                let Ok(base) = u32::from_str_radix(base, 16) else { continue };
-                let dir = path.rsplit_once('/').map_or("", |d| d.0);
-                let rel = if dir.is_empty() { format!("{base:08X}.toml") } else { format!("{dir}/{base:08X}.toml") };
-                let there = other.dumps.join("files").join(path);
-                if known.contains(&rel) || !there.exists() {
-                    continue;
-                }
-                known.insert(rel.clone());
-                let data = lzss(&std::fs::read(game.dumps.join("files").join(path))?);
-                packages.push((rel, base, data, lzss(&std::fs::read(&there)?), HashSet::new()));
-            }
+    let mut known: HashSet<String> = packages.iter().map(|p| p.0.clone()).collect();
+    for (path, &base) in &game_loads {
+        let Some(&their_base) = their_loads.get(path) else { continue };
+        let dir = path.rsplit_once('/').map_or("", |d| d.0);
+        let rel = if dir.is_empty() { format!("{base:08X}.toml") } else { format!("{dir}/{base:08X}.toml") };
+        if !known.insert(rel.clone()) {
+            continue;
         }
-        Err(_) => report.push(
-            "files/load-addresses.txt: not found (extract again with a newer PE2PC): only the listed packages were looked in".into(),
-        ),
+        let data = lzss(&std::fs::read(game.dumps.join("files").join(path))?);
+        let theirs = lzss(&std::fs::read(other.dumps.join("files").join(path))?);
+        packages.push((rel, base, data, their_base, theirs, HashSet::new()));
     }
 
     // The same texts elsewhere (the extract lists each once), found as the
@@ -616,8 +623,8 @@ pub fn import(game: &Version, other: &Version, out: &Path, report: &mut Vec<Stri
         .filter(|o| !o.contains('%') && o.chars().count() >= 2)
         .filter_map(|o| Some((latin1(o)?, o)))
         .collect();
-    for (rel, base, data, theirs, listed) in &packages {
-        let place = Place::new(rel.clone(), *base, data, theirs, listed.clone());
+    for (rel, base, data, their_base, theirs, listed) in &packages {
+        let place = Place::new(rel.clone(), data, *their_base, theirs, listed.clone());
         for offset in (0..data.len()).step_by(4) {
             if offset >= 4 && data[offset - 4..offset].iter().all(|&b| b != 0 && in_font(b)) {
                 continue;
@@ -628,7 +635,7 @@ pub fn import(game: &Version, other: &Version, out: &Path, report: &mut Vec<Stri
                 continue;
             }
             let Some(there) = place.where_there(at) else { continue };
-            let raw = read_text(theirs, (there - base) as usize).to_vec();
+            let raw = read_text(theirs, (there - their_base) as usize).to_vec();
             if let Some(text) = translation(report, &place.rel, original, at, &raw) {
                 seen.push((original.clone(), place.rel.clone(), at, raw, text));
             }
