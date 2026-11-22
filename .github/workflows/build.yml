@@ -41,6 +41,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           zip="pe2-lang-import-${GITHUB_REF_NAME}-windows-x86.zip"
-          cp target/i686-pc-windows-msvc/release/pe2-lang-import.exe README.md LICENSE .
+          cp target/i686-pc-windows-msvc/release/pe2-lang-import.exe .
           7z a "$zip" pe2-lang-import.exe README.md LICENSE
           gh release create "$GITHUB_REF_NAME" "$zip" --title "pe2-lang-import $GITHUB_REF_NAME" --notes "Put pe2-lang-import.exe next to pe2.exe. See README.md."
