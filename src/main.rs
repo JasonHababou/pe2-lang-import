@@ -1,8 +1,9 @@
-//! pe2-lang-import: makes a PE2PC language mod from your own discs of a
-//! European release of Parasite Eve II (French, German, Spanish or
-//! Italian). PE2PC plays the USA discs; this puts the release's dialogue,
+//! pe2-lang-import: makes a PE2PC language mod from your own discs of
+//! another release of Parasite Eve II (French, German, Spanish, Italian or
+//! Japanese). PE2PC plays the USA discs; this puts the release's dialogue,
 //! menus, items, pictures of text, loading captions and movies with text
-//! over them, as a mod in PE2PC's mods folder. Nothing of the game is in
+//! (of the Japanese one, its dialogue and movies with text) over them, as a
+//! mod in PE2PC's mods folder. Nothing of the game is in
 //! this program: all comes from the player's discs, through PE2PC's
 //! extract (`pe2 --extract`).
 //!
@@ -16,6 +17,7 @@ mod dumps;
 mod gui;
 mod i18n;
 mod import;
+mod japanese;
 mod lang;
 mod pe2pc;
 mod pipeline;

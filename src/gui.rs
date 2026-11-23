@@ -1,4 +1,4 @@
-//! The window: PE2PC, the USA discs it plays and the European release's
+//! The window: PE2PC, the USA discs it plays and the other release's
 //! discs to import, then the import's progress and what it made.
 
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ const WINDOW: [f32; 2] = [640.0, 560.0];
 /// The width of the chosen files' paths.
 const PATH_WIDTH: f32 = 340.0;
 const STEPS: [&str; 4] =
-    ["Reading the USA discs", "Reading your European discs", "Making the mod", "Converting the movies with text"];
+    ["Reading the USA discs", "Reading your discs", "Making the mod", "Converting the movies with text"];
 
 struct App {
     lang: Lang,
@@ -134,8 +134,8 @@ impl App {
             }
             App::file_row(ui, lang, lang.t("USA disc 1"), &mut self.usa[0], disc);
             App::file_row(ui, lang, lang.t("USA disc 2"), &mut self.usa[1], disc);
-            App::file_row(ui, lang, lang.t("European disc 1"), &mut self.release[0], disc);
-            App::file_row(ui, lang, lang.t("European disc 2"), &mut self.release[1], disc);
+            App::file_row(ui, lang, lang.t("Your disc 1"), &mut self.release[0], disc);
+            App::file_row(ui, lang, lang.t("Your disc 2"), &mut self.release[1], disc);
         });
         if self.pe2.is_none() {
             ui.label(lang.t("Choose PE2PC's program (pe2.exe): the import reads the discs with it."));
@@ -215,7 +215,7 @@ impl eframe::App for App {
         self.poll();
         egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(self.lang.t("European languages for PE2PC"));
+                ui.heading(self.lang.t("Languages for PE2PC"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     egui::ComboBox::from_id_salt("language").selected_text(LANGS[self.lang.0].1).show_ui(ui, |ui| {
                         for (k, l) in LANGS.iter().enumerate() {
@@ -226,7 +226,7 @@ impl eframe::App for App {
             });
             ui.add_space(6.0);
             ui.label(self.lang.t(
-                "Makes a PE2PC mod of the dialogue, menus, items, pictures of text, loading captions and movies of your own French, German, Spanish or Italian discs of Parasite Eve II. Nothing of the game comes with this program: all is read from your discs.",
+                "Makes a PE2PC mod of the dialogue, menus, items, pictures of text, loading captions and movies of your own French, German, Spanish or Italian discs of Parasite Eve II, or of the dialogue and movies of your Japanese discs. Nothing of the game comes with this program: all is read from your discs.",
             ));
             ui.add_space(12.0);
             match &self.running {

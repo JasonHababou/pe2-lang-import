@@ -11,13 +11,6 @@ use std::process::{Command, Stdio};
 use crate::Result;
 use crate::import::{self, Made};
 
-/// The movies whose pictures have text (the title menu's, the prologue's),
-/// by where the discs list them, and the name PE2PC knows the game's by
-/// (the hash of its first frame, and its length when others begin with the
-/// same frame).
-const MOVIES_WITH_TEXT: [(&str, &str); 2] =
-    [("STAGE0.HED entry 0", "0d17397b6feab122"), ("stage1/2001 entry 0", "39d9715252254830-1397")];
-
 pub struct Job {
     /// PE2PC's program.
     pub pe2: PathBuf,
@@ -69,7 +62,7 @@ fn run_steps(job: &Job, tell: &dyn Fn(Event)) -> Result<Done> {
     let folder = job.data.join("mods").join(release.folder);
     let made = import::make(&usa, &other, &folder, None)?;
     tell(Event::Step(Step::Movies));
-    let movies = movies(&other.join("movies"), &folder.join("movies"));
+    let movies = movies(release.movies, &other.join("movies"), &folder.join("movies"));
     Ok(Done { made, folder, movies })
 }
 
@@ -99,9 +92,9 @@ fn extract(job: &Job, home: &Path, discs: &[PathBuf], parts: &str, tell: &dyn Fn
     Ok(())
 }
 
-/// The movies with text, from the release's extract to the mod. Answers
-/// how many, or why none.
-fn movies(from: &Path, to: &Path) -> std::result::Result<usize, String> {
+/// The movies with text (`movies`: lang.rs's), from the release's extract
+/// to the mod. Answers how many, or why none.
+fn movies(movies: &[(&str, &str)], from: &Path, to: &Path) -> std::result::Result<usize, String> {
     std::fs::create_dir_all(to).map_err(|e| format!("{}: {e}", to.display()))?;
     // where the discs list each movie -> its name in the release's extract
     let mut names = std::collections::HashMap::new();
@@ -119,7 +112,7 @@ fn movies(from: &Path, to: &Path) -> std::result::Result<usize, String> {
         }
     }
     let mut copied = 0;
-    for (listed, game) in MOVIES_WITH_TEXT {
+    for &(listed, game) in movies {
         let theirs = names.get(listed).map(|name| from.join(format!("{name}.mp4"))).filter(|p| p.is_file());
         let Some(theirs) = theirs else {
             return Err("this PE2PC's extract writes no .mp4 of the movies: a newer PE2PC does".into());

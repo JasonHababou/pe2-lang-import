@@ -111,8 +111,13 @@ pub fn u32_at(data: &[u8], at: usize) -> u32 {
 
 /// One LZSS stream (PE2PC's dialogue/picture.rs `lzss`).
 pub fn lzss(stream: &[u8]) -> Vec<u8> {
+    lzss_at(stream, 0).0
+}
+
+/// The LZSS stream at `start` of `stream`, and where it ends.
+pub fn lzss_at(stream: &[u8], start: usize) -> (Vec<u8>, usize) {
     let (mut ring, mut next, mut out) = ([0u8; 256], 0u8, Vec::new());
-    let (mut pos, mut byte, mut mask) = (0, 0u8, 0u8);
+    let (mut pos, mut byte, mut mask) = (start, 0u8, 0u8);
     let mut bits = |n: u32| -> Option<u32> {
         let mut v = 0;
         for _ in 0..n {
@@ -148,7 +153,7 @@ pub fn lzss(stream: &[u8]) -> Vec<u8> {
             at = at.wrapping_add(1);
         }
     }
-    out
+    (out, pos)
 }
 
 /// An 8-bit greyscale PNG's rows (an indexed sheet's palette indices).

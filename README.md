@@ -1,8 +1,8 @@
 # pe2-lang-import
 
-Play [PE2PC](https://github.com/Snaity-CORE/pe2-pc-port), the PC port of Parasite Eve II, in French, German, Spanish or Italian.
+Play [PE2PC](https://github.com/Snaity-CORE/pe2-pc-port), the PC port of Parasite Eve II, in French, German, Spanish, Italian or Japanese.
 
-PE2PC plays the USA discs. This program reads your own discs of a European release and turns them into a PE2PC mod with that release's:
+PE2PC plays the USA discs. This program reads your own discs of another release and turns them into a PE2PC mod with that release's:
 
 - dialogue and speakers' names;
 - menus, items and their descriptions;
@@ -10,12 +10,14 @@ PE2PC plays the USA discs. This program reads your own discs of a European relea
 - loading captions;
 - the two movies with text (the title menu's and the prologue's).
 
+From the Japanese release, it takes the dialogue and the three movies with text (also Dryfield's arrival). The menus, items and loading captions stay in English.
+
 Nothing from the game comes with this program. Everything is read from your discs.
 
 ## What you need
 
 - PE2PC, set up with your Parasite Eve II (USA) discs, in a version that plays these mods. Until [Snaity-CORE/pe2-pc-port#34](https://github.com/Snaity-CORE/pe2-pc-port/pull/34) is merged, that is the [test build](https://github.com/JasonHababou/pe2-pc-port/releases/tag/nightly) of the pull request.
-- Your own dumps of a European release, discs 1 and 2, as `.chd` or `.cue` images:
+- Your own dumps of another release, discs 1 and 2, as `.chd` or `.cue` images:
 
   | Language | Release     |
   |----------|-------------|
@@ -23,6 +25,7 @@ Nothing from the game comes with this program. Everything is read from your disc
   | German   | SLES-02560  |
   | Spanish  | SLES-02561  |
   | Italian  | SLES-02562  |
+  | Japanese | SLPS-02480/81 |
 
 - About 2 GB of free space for the time of the import (it is removed afterwards).
 
@@ -32,7 +35,7 @@ Like PE2PC, it is a Windows program. On Linux and the Steam Deck, it runs throug
 
 1. Take the [latest release](https://github.com/JasonHababou/pe2-lang-import/releases/latest) and put `pe2-lang-import.exe` next to `pe2.exe`.
 2. In PE2PC's launcher, open **Mods** and click **Import a language from European discs...**. You can also run `pe2-lang-import.exe` directly.
-3. Choose your European discs. The USA discs come from PE2PC's settings.
+3. Choose your discs of the other release. The USA discs come from PE2PC's settings.
 4. Click **Make the mod**. The import takes a few minutes.
 
 The mod goes to PE2PC's `mods` folder and is turned on. Mods need **Experimental features (mods)** turned on in PE2PC's **Settings > General**. To get PE2PC's own screens (the launcher, the pause menu, Options) in your language too, choose it in **Settings > General > Language**.
@@ -62,6 +65,13 @@ For each part of the mod, the import does this:
 
 The speakers' names (`res/<language>/speakers.toml`) are pictures on the discs, written out by hand.
 
+The Japanese release draws each room's dialogue with a glyph picture of its own, holding only the kana and kanji that room needs. PE2PC's extract cannot read these.
+
+- `res/ja/pages.toml` gives each dialogue file's glyph picture.
+- `res/ja/glyphs.toml` gives each glyph's character, keyed by the hash of its picture. The 1775 glyphs were read once, by OCR and by eye.
+- The lines are put into the game's lines in the same place, file by file. A file with a different number of lines, or a line with other choices, stays in English.
+- PE2PC draws them with the mod's font: [Noto Sans JP](https://github.com/notofonts/noto-cjk) Bold, under the SIL Open Font License (`res/ja/OFL.txt`).
+
 ## Building
 
 ```
@@ -70,4 +80,4 @@ cargo build --release
 
 ## License
 
-CC0 1.0, like PE2PC.
+CC0 1.0, like PE2PC, except Noto Sans JP (`res/ja/NotoSansJP-Bold.otf`): SIL Open Font License 1.1, see `res/ja/OFL.txt`.
