@@ -1,7 +1,8 @@
 //! The whole import: both releases extracted by PE2PC (`pe2 --extract`,
 //! each into a work folder of its own), the mod made from them into PE2PC's
 //! mods folder, with the release's movies with text (PE2PC's extract writes
-//! each movie as a mod's, `<hash>.mp4`).
+//! each movie as a mod's, `<name>.mp4`, and where the discs list it,
+//! `<name>.txt`).
 
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
@@ -11,9 +12,11 @@ use crate::Result;
 use crate::import::{self, Made};
 
 /// The movies whose pictures have text (the title menu's, the prologue's),
-/// by the hash PE2PC names them by (the same in all releases: of their
-/// first frame).
-const MOVIES_WITH_TEXT: [&str; 2] = ["0d17397b6feab122", "39d9715252254830"];
+/// by where the discs list them, and the name PE2PC knows the game's by
+/// (the hash of its first frame, and its length when others begin with the
+/// same frame).
+const MOVIES_WITH_TEXT: [(&str, &str); 2] =
+    [("STAGE0.HED entry 0", "0d17397b6feab122"), ("stage1/2001 entry 0", "39d9715252254830-1397")];
 
 pub struct Job {
     /// PE2PC's program.
@@ -100,13 +103,29 @@ fn extract(job: &Job, home: &Path, discs: &[PathBuf], parts: &str, tell: &dyn Fn
 /// how many, or why none.
 fn movies(from: &Path, to: &Path) -> std::result::Result<usize, String> {
     std::fs::create_dir_all(to).map_err(|e| format!("{}: {e}", to.display()))?;
-    let mut copied = 0;
-    for hash in MOVIES_WITH_TEXT {
-        let name = format!("{hash}.mp4");
-        if !from.join(&name).is_file() {
-            return Err("this PE2PC's extract writes no .mp4 of the movies: a newer PE2PC does".into());
+    // where the discs list each movie -> its name in the release's extract
+    let mut names = std::collections::HashMap::new();
+    for entry in std::fs::read_dir(from).map_err(|e| format!("{}: {e}", from.display()))?.flatten() {
+        let path = entry.path();
+        if path.extension().is_none_or(|x| x != "txt") {
+            continue;
         }
-        std::fs::copy(from.join(&name), to.join(&name)).map_err(|e| format!("{}: {e}", to.join(&name).display()))?;
+        let listed = std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|t| t.parse::<toml::Table>().ok())
+            .and_then(|t| t.get("listed")?.as_str().map(str::to_string));
+        if let (Some(listed), Some(name)) = (listed, path.file_stem().and_then(|s| s.to_str())) {
+            names.insert(listed, name.to_string());
+        }
+    }
+    let mut copied = 0;
+    for (listed, game) in MOVIES_WITH_TEXT {
+        let theirs = names.get(listed).map(|name| from.join(format!("{name}.mp4"))).filter(|p| p.is_file());
+        let Some(theirs) = theirs else {
+            return Err("this PE2PC's extract writes no .mp4 of the movies: a newer PE2PC does".into());
+        };
+        let mine = to.join(format!("{game}.mp4"));
+        std::fs::copy(&theirs, &mine).map_err(|e| format!("{}: {e}", mine.display()))?;
         copied += 1;
     }
     Ok(copied)
