@@ -245,11 +245,16 @@ impl<'a> Place<'a> {
                 *votes.entry(there).or_default() += 1;
             }
         }
-        // a text's start, as the game's (not into another's words)
+        // a text's start, as the game's (not into another's words): after a
+        // 0, or a word that is no letters (a text right after the code: the
+        // French build's "Objet trouvé !")
         let (base, len) = (self.their_base as u64, theirs.len() as u64);
         let good = votes.into_iter().filter(|&(a, _)| {
-            let a = a as u64;
-            base <= a && a < base + len && (a == base || theirs[(a - base - 1) as usize] == 0)
+            if !(base <= a as u64 && (a as u64) < base + len) {
+                return false;
+            }
+            let o = (a - self.their_base) as usize;
+            o == 0 || theirs[o - 1] == 0 || (o.is_multiple_of(4) && !theirs[o - 4..o].iter().all(|&b| b != 0 && in_font(b)))
         });
         py::first_max_by(good, |&(_, n)| n).map(|(a, _)| a)
     }
