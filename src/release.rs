@@ -183,8 +183,10 @@ fn pair_records<'a>(mine: &[&'a Listed], theirs: &[&'a Listed], report: &mut Vec
 }
 
 /// Whether `text` has the form of one-line `original`: the same `\` codes,
-/// numbers and pad buttons, the same closing mark (or none), the same
-/// spaces at its ends, a capital first where it has one.
+/// numbers and pad buttons, the same closing mark (or none, or a colon
+/// where it has none: "Obtained" before an item's name is "Vous avez
+/// trouvé :"), the same spaces at its ends, a capital first where it has
+/// one.
 fn same_form(original: &str, text: &str) -> bool {
     let end = |t: &str| END_MARK.find(t.trim_end_matches(py::is_space)).map(|m| m.as_str().to_string());
     let first_upper = |t: &str| t.chars().next().is_some_and(|c| py::is_upper(&c.to_string()));
@@ -192,7 +194,7 @@ fn same_form(original: &str, text: &str) -> bool {
     all(&CODE, original) == all(&CODE, text)
         && all(&DIGITS, original) == all(&DIGITS, text)
         && all(&BUTTONS, original) == all(&BUTTONS, text)
-        && end(original) == end(text)
+        && (end(original) == end(text) || (end(original).as_deref() == Some("") && end(text).as_deref() == Some(":")))
         && first_upper(original) == first_upper(text)
         && ends(original) == ends(text)
 }
